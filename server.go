@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"net"
 	"strconv"
 	"sync"
@@ -58,6 +59,29 @@ func (server *Server) Handler(conn net.Conn) {
 
 	//Broadcasting the login msg
 	server.QueueBroadcastMsg(user, "Login")
+
+	// Receive client msg
+	go func() {
+		buffer := make([]byte, 1024)
+
+		for {
+			n, err := conn.Read(buffer)
+			if n == 0 {
+				server.QueueBroadcastMsg(user, "Logout")
+				return
+			}
+			// Illegal operate
+			if err != nil && err != io.EOF {
+				fmt.Println("Conn read error:", err)
+				return
+			}
+
+			// Extract user msg and remove "\n"
+			msg := string(buffer[:n-1])
+			// Send Ordinary Msg
+			server.QueueBroadcastMsg(user, msg)
+		}
+	}()
 
 	// Block
 	select {}
