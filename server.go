@@ -4,11 +4,17 @@ import (
 	"fmt"
 	"net"
 	"strconv"
+	"sync"
 )
 
 type Server struct {
 	Ip   string
 	Port int
+
+	OnlineMap map[string]*User
+	mapLock   sync.RWMutex
+
+	Message chan string
 }
 
 // Factory Constructor
