@@ -28,6 +28,24 @@ func NewServer(ip string, port int) *Server {
 	return server
 }
 
+func (server *Server) ListenMsg() {
+	for {
+		msg := <-server.Message
+
+		server.mapLock.Lock()
+		for _, client := range server.OnlineMap {
+			client.C <- msg
+		}
+
+		server.mapLock.Unlock()
+	}
+}
+
+func (server *Server) QueueBroadcastMsg(user *User, message string) {
+	sendMsg := "[" + user.conn.RemoteAddr().String() + "] " + user.Name + " : " + message
+	server.Message <- sendMsg
+}
+
 func (server *Server) Handler(conn net.Conn) {
 	fmt.Printf("New connection from %s\n", conn.RemoteAddr())
 
