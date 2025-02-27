@@ -29,8 +29,20 @@ func NewServer(ip string, port int) *Server {
 }
 
 func (server *Server) Handler(conn net.Conn) {
-	// TODO: service
 	fmt.Printf("New connection from %s\n", conn.RemoteAddr())
+
+	user := NewUser(conn, conn.RemoteAddr().String())
+
+	// User Login, add to map
+	server.mapLock.Lock()
+	server.OnlineMap[user.Name] = user
+	server.mapLock.Unlock()
+
+	//Broadcasting the login msg
+	server.QueueBroadcastMsg(user, "Login")
+
+	// Block
+	select {}
 }
 
 // Run a new Server
