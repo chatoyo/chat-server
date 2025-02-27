@@ -60,7 +60,7 @@ func (server *Server) Handler(conn net.Conn) {
 	//Broadcasting the login msg
 	server.QueueBroadcastMsg(user, "Login")
 
-	// Receiving client msg
+	// Receive client msg
 	go func() {
 		buffer := make([]byte, 1024)
 
