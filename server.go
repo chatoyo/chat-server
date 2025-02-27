@@ -73,6 +73,8 @@ func (server *Server) Run() {
 
 	defer listener.Close()
 
+	go server.ListenMsg()
+
 	for {
 		// accept
 		conn, err := listener.Accept()
