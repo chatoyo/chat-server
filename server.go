@@ -65,12 +65,12 @@ func (server *Server) ListenMsg() {
 }
 
 func (server *Server) QueueBroadcastMsg(user *User, message string) {
-	sendMsg := "[" + user.conn.RemoteAddr().String() + "] " + user.Name + ": " + message
+	sendMsg := "[PUBLIC] [" + user.conn.RemoteAddr().String() + "] " + user.Name + ": " + message + "\n"
 	server.Message <- sendMsg
 }
 
 func (server *Server) SendMsg(user *User, message string) {
-	user.conn.Write([]byte(message))
+	user.conn.Write([]byte(message + "\n"))
 }
 
 func (server *Server) ParseMsg(user *User, msg string) {
@@ -98,6 +98,28 @@ func (server *Server) ParseMsg(user *User, msg string) {
 			server.SendMsg(user, "[SUCCESS] Rename successfully.\n")
 		}
 		user.Name = newName
+
+	} else if len(msg) > 4 && msg[:3] == "to|" {
+		fmt.Println(strings.Split(msg, "|"))
+		targetUserId := strings.Split(msg, "|")[1]
+
+		if targetUserId == "" {
+			server.SendMsg(user, "[ERROR] Invalid msg.\n")
+			return
+		}
+
+		targetUser, ok := server.OnlineMap[targetUserId]
+		if !ok {
+			server.SendMsg(user, "[ERROR] Target user not exists.\n")
+			return
+		}
+
+		content := strings.Split(msg, "|")[2]
+		if content == "" {
+			return
+		}
+
+		server.SendMsg(targetUser, "[PRIVATE] "+user.Name+"："+content)
 
 	} else {
 		// Send Ordinary Msg
