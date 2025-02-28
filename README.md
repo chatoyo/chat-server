@@ -1,5 +1,12 @@
 # ChatOyO即时聊天服务
 
+## 编译执行
+
+```shell
+    go build -o server main.go server.go user.go
+    ./server
+```
+
 ## 迭代
 1. 构建基础Server
 2. 用户上线功能
