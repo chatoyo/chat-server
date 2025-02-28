@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 )
 
 type Server struct {
@@ -69,11 +70,12 @@ func (server *Server) QueueBroadcastMsg(user *User, message string) {
 	sendMsg := "[" + user.conn.RemoteAddr().String() + "] " + user.Name + ": " + message
 	server.Message <- sendMsg
 }
+
 func (server *Server) SendMsg(user *User, message string) {
 	user.conn.Write([]byte(message))
 }
 
-func (server *Server) DoMsg(user *User, msg string) {
+func (server *Server) ParseMsg(user *User, msg string) {
 	// Parse User Msg
 	if msg == "who" {
 		server.mapLock.Lock()
@@ -116,6 +118,9 @@ func (server *Server) Handler(conn net.Conn) {
 	//Broadcasting the login msg
 	server.QueueBroadcastMsg(user, "Login")
 
+	// Activity Channel
+	alive := make(chan bool)
+
 	// Receive client msg
 	go func() {
 		buffer := make([]byte, 1024)
@@ -139,11 +144,28 @@ func (server *Server) Handler(conn net.Conn) {
 			// Windows n=n-2, Linux n maybe equals to n-1?
 			msg := string(buffer[:n-2])
 
-			server.DoMsg(user, msg)
+			server.ParseMsg(user, msg)
+
+			alive <- true
 		}
 	}()
 
-	// Block
+	for {
+		select {
+		case <-alive: // Must on the top of Timer Handler, due to the execute sequence
+			// Alive
+			// Reset Timer
+		case <-time.After(time.Second * 10):
+			// Timeout
+			// Force offline
+			server.SendMsg(user, "[TIMEOUT] Online timeout, force offline.\n")
+			close(user.C)
+			conn.Close()
+			return
+		}
+	}
+
+	// Meaningless Block
 	select {}
 }
 
