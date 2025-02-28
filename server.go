@@ -5,6 +5,7 @@ import (
 	"io"
 	"net"
 	"strconv"
+	"strings"
 	"sync"
 )
 
@@ -65,11 +66,43 @@ func (server *Server) ListenMsg() {
 }
 
 func (server *Server) QueueBroadcastMsg(user *User, message string) {
-	sendMsg := "[" + user.conn.RemoteAddr().String() + "] " + user.Name + " : " + message
+	sendMsg := "[" + user.conn.RemoteAddr().String() + "] " + user.Name + ": " + message
 	server.Message <- sendMsg
 }
 func (server *Server) SendMsg(user *User, message string) {
 	user.conn.Write([]byte(message))
+}
+
+func (server *Server) DoMsg(user *User, msg string) {
+	// Parse User Msg
+	if msg == "who" {
+		server.mapLock.Lock()
+		var onlineMsg string
+		for _, user := range server.OnlineMap {
+			onlineMsg += "[" + user.conn.RemoteAddr().String() + "] " + user.Name + " " + "ONLINE\n"
+		}
+		server.SendMsg(user, onlineMsg)
+		server.mapLock.Unlock()
+
+	} else if len(msg) > 7 && msg[:7] == "rename|" {
+		newName := strings.Split(msg, "|")[1]
+
+		_, nameAlreadyExists := server.OnlineMap[newName]
+		if nameAlreadyExists {
+			server.SendMsg(user, "[FAIL] Rename failed. Duplicated name.\n")
+		} else {
+			server.mapLock.Lock()
+			delete(server.OnlineMap, user.Name)
+			server.OnlineMap[newName] = user
+			server.mapLock.Unlock()
+			server.SendMsg(user, "[SUCCESS] Rename successfully.\n")
+		}
+		user.Name = newName
+
+	} else {
+		// Send Ordinary Msg
+		server.QueueBroadcastMsg(user, msg)
+	}
 }
 
 func (server *Server) Handler(conn net.Conn) {
@@ -106,20 +139,7 @@ func (server *Server) Handler(conn net.Conn) {
 			// Windows n=n-2, Linux n maybe equals to n-1?
 			msg := string(buffer[:n-2])
 
-			// Parse User Msg
-			if msg == "who" {
-				server.mapLock.Lock()
-				var onlineMsg string
-				for _, user := range server.OnlineMap {
-					onlineMsg += "[" + user.conn.RemoteAddr().String() + "] " + user.Name + " " + "ONLINE\n"
-				}
-				fmt.Println(onlineMsg)
-				server.SendMsg(user, onlineMsg)
-				server.mapLock.Unlock()
-			} else {
-				// Send Ordinary Msg
-				server.QueueBroadcastMsg(user, msg)
-			}
+			server.DoMsg(user, msg)
 		}
 	}()
 
