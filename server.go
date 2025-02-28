@@ -11,8 +11,7 @@ import (
 )
 
 type Server struct {
-	Ip   string
-	Port int
+	config Config
 
 	OnlineMap map[string]*User
 	mapLock   sync.RWMutex
@@ -21,10 +20,9 @@ type Server struct {
 }
 
 // Factory Constructor
-func NewServer(ip string, port int) *Server {
+func NewServer(config *Config) *Server {
 	server := &Server{
-		Ip:        ip,
-		Port:      port,
+		config:    *config,
 		OnlineMap: make(map[string]*User),
 		Message:   make(chan string),
 	}
@@ -67,12 +65,12 @@ func (server *Server) ListenMsg() {
 }
 
 func (server *Server) QueueBroadcastMsg(user *User, message string) {
-	sendMsg := "[" + user.conn.RemoteAddr().String() + "] " + user.Name + ": " + message
+	sendMsg := "[PUBLIC] [" + user.conn.RemoteAddr().String() + "] " + user.Name + ": " + message + "\n"
 	server.Message <- sendMsg
 }
 
 func (server *Server) SendMsg(user *User, message string) {
-	user.conn.Write([]byte(message))
+	user.conn.Write([]byte(message + "\n"))
 }
 
 func (server *Server) ParseMsg(user *User, msg string) {
@@ -100,6 +98,28 @@ func (server *Server) ParseMsg(user *User, msg string) {
 			server.SendMsg(user, "[SUCCESS] Rename successfully.\n")
 		}
 		user.Name = newName
+
+	} else if len(msg) > 4 && msg[:3] == "to|" {
+		fmt.Println(strings.Split(msg, "|"))
+		targetUserId := strings.Split(msg, "|")[1]
+
+		if targetUserId == "" {
+			server.SendMsg(user, "[ERROR] Invalid msg.\n")
+			return
+		}
+
+		targetUser, ok := server.OnlineMap[targetUserId]
+		if !ok {
+			server.SendMsg(user, "[ERROR] Target user not exists.\n")
+			return
+		}
+
+		content := strings.Split(msg, "|")[2]
+		if content == "" {
+			return
+		}
+
+		server.SendMsg(targetUser, "[PRIVATE] "+user.Name+"："+content)
 
 	} else {
 		// Send Ordinary Msg
@@ -155,7 +175,7 @@ func (server *Server) Handler(conn net.Conn) {
 		case <-alive: // Must on the top of Timer Handler, due to the execute sequence
 			// Alive
 			// Reset Timer
-		case <-time.After(time.Second * 10):
+		case <-time.After(time.Second * time.Duration(server.config.Server.MaxPendingSeconds)):
 			// Timeout
 			// Force offline
 			server.SendMsg(user, "[TIMEOUT] Online timeout, force offline.\n")
@@ -171,7 +191,10 @@ func (server *Server) Handler(conn net.Conn) {
 
 // Run a new Server
 func (server *Server) Run() {
-	listener, err := net.Listen("tcp", server.Ip+":"+strconv.Itoa(server.Port))
+	listener, err := net.Listen(
+		"tcp",
+		server.config.Server.Ip+":"+strconv.Itoa(server.config.Server.Port),
+	)
 	if err != nil {
 		fmt.Printf("net.Listen error: %v\n", err)
 		return

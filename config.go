@@ -8,8 +8,9 @@ import (
 
 type Config struct {
 	Server struct {
-		Ip   string `json:"ip"`
-		Port int    `json:"port"`
+		Ip                string `json:"ip"`
+		Port              int    `json:"port"`
+		MaxPendingSeconds int64  `json:"maxPendingSeconds"`
 	}
 }
 

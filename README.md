@@ -21,6 +21,12 @@
 
 `` rename|[NEW_NAME] ``
 
+### 3. private
+
+It's a private conversation. (致敬新概念英语2第一课)
+
+`` to|[UID/USER_NAME]|[MESSAGE]``
+
 ## 迭代
 
 1. 构建基础Server
