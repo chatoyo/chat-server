@@ -68,6 +68,9 @@ func (server *Server) QueueBroadcastMsg(user *User, message string) {
 	sendMsg := "[" + user.conn.RemoteAddr().String() + "] " + user.Name + " : " + message
 	server.Message <- sendMsg
 }
+func (server *Server) SendMsg(user *User, message string) {
+	user.conn.Write([]byte(message))
+}
 
 func (server *Server) Handler(conn net.Conn) {
 	fmt.Printf("[INFO][LOGIN] New connection from %s\n", conn.RemoteAddr())
@@ -100,9 +103,23 @@ func (server *Server) Handler(conn net.Conn) {
 			}
 
 			// Extract user msg and remove "\n"
-			msg := string(buffer[:n-1])
-			// Send Ordinary Msg
-			server.QueueBroadcastMsg(user, msg)
+			// Windows n=n-2, Linux n maybe equals to n-1?
+			msg := string(buffer[:n-2])
+
+			// Parse User Msg
+			if msg == "who" {
+				server.mapLock.Lock()
+				var onlineMsg string
+				for _, user := range server.OnlineMap {
+					onlineMsg += "[" + user.conn.RemoteAddr().String() + "] " + user.Name + " " + "ONLINE\n"
+				}
+				fmt.Println(onlineMsg)
+				server.SendMsg(user, onlineMsg)
+				server.mapLock.Unlock()
+			} else {
+				// Send Ordinary Msg
+				server.QueueBroadcastMsg(user, msg)
+			}
 		}
 	}()
 
