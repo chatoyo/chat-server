@@ -153,7 +153,7 @@ func (server *Server) Handler(conn net.Conn) {
 		case <-alive: // Must on the top of Timer Handler, due to the execute sequence
 			// Alive
 			// Reset Timer
-		case <-time.After(time.Second * 10):
+		case <-time.After(time.Second * time.Duration(server.config.Server.MaxPendingSeconds)):
 			// Timeout
 			// Force offline
 			server.SendMsg(user, "[TIMEOUT] Online timeout, force offline.\n")
