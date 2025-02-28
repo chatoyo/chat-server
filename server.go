@@ -29,6 +29,28 @@ func NewServer(ip string, port int) *Server {
 	return server
 }
 
+type UserStatus int
+
+const (
+	LOGIN = iota
+	LOGOUT
+)
+
+func (server *Server) updateUserStatus(user *User, status UserStatus) {
+	server.mapLock.Lock()
+	defer server.mapLock.Unlock()
+
+	switch status {
+	case LOGIN:
+		server.OnlineMap[user.Name] = user
+		break
+	case LOGOUT:
+		delete(server.OnlineMap, user.Name)
+		break
+	default:
+	}
+}
+
 func (server *Server) ListenMsg() {
 	for {
 		msg := <-server.Message
@@ -48,14 +70,12 @@ func (server *Server) QueueBroadcastMsg(user *User, message string) {
 }
 
 func (server *Server) Handler(conn net.Conn) {
-	fmt.Printf("New connection from %s\n", conn.RemoteAddr())
+	fmt.Printf("[INFO][LOGIN] New connection from %s\n", conn.RemoteAddr())
 
 	user := NewUser(conn, conn.RemoteAddr().String())
 
 	// User Login, add to map
-	server.mapLock.Lock()
-	server.OnlineMap[user.Name] = user
-	server.mapLock.Unlock()
+	server.updateUserStatus(user, LOGIN)
 
 	//Broadcasting the login msg
 	server.QueueBroadcastMsg(user, "Login")
@@ -68,6 +88,9 @@ func (server *Server) Handler(conn net.Conn) {
 			n, err := conn.Read(buffer)
 			if n == 0 {
 				server.QueueBroadcastMsg(user, "Logout")
+				server.updateUserStatus(user, LOGOUT)
+
+				fmt.Printf("[INFO][LOGOUT] %s\n", conn.RemoteAddr())
 				return
 			}
 			// Illegal operate
