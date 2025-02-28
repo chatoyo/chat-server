@@ -11,8 +11,7 @@ import (
 )
 
 type Server struct {
-	Ip   string
-	Port int
+	config Config
 
 	OnlineMap map[string]*User
 	mapLock   sync.RWMutex
@@ -21,10 +20,9 @@ type Server struct {
 }
 
 // Factory Constructor
-func NewServer(ip string, port int) *Server {
+func NewServer(config *Config) *Server {
 	server := &Server{
-		Ip:        ip,
-		Port:      port,
+		config:    *config,
 		OnlineMap: make(map[string]*User),
 		Message:   make(chan string),
 	}
@@ -171,7 +169,10 @@ func (server *Server) Handler(conn net.Conn) {
 
 // Run a new Server
 func (server *Server) Run() {
-	listener, err := net.Listen("tcp", server.Ip+":"+strconv.Itoa(server.Port))
+	listener, err := net.Listen(
+		"tcp",
+		server.config.Server.Ip+":"+strconv.Itoa(server.config.Server.Port),
+	)
 	if err != nil {
 		fmt.Printf("net.Listen error: %v\n", err)
 		return
